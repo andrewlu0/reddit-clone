@@ -1,6 +1,6 @@
 import { User } from "../entities/User";
 import { MyContext } from "src/types";
-import { Arg, Ctx, Field, InputType, Mutation, ObjectType, Query, Resolver } from "type-graphql";
+import { Arg, Ctx, Field, InputType, Mutation, ObjectType, Resolver } from "type-graphql";
 import argon2 from "argon2";
 
 @InputType()
@@ -57,11 +57,23 @@ export class UserResolver {
             username: options.username,
             password: hashedPassword
         });
-        await em.persistAndFlush(user);
+        try{
+            await em.persistAndFlush(user);
+        } catch (err) {
+            if (err.code === "23505") {
+                // duplicate username error
+                return {
+                    errors: [{
+                        field: "username",
+                        message: "Username already exists"
+                    }]
+                }
+            }
+        }
         return { user };
     }
 
-    @Mutation(() => User)
+    @Mutation(() => UserResponse)
     async login(
         @Arg('options') options: UsernamePasswordInput,
         @Ctx() {em}: MyContext
